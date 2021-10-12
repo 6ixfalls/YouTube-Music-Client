@@ -3,9 +3,6 @@ sudo: false
 language: node_js
 node_js: "15"
 
-install:
-  - yarn
-
 cache:
   directories:
     - node_modules
@@ -27,7 +24,7 @@ jobs:
       osx_image: xcode10.2
       script: 
         - rm -f package-lock.json
-        - yarn dist:mw
+        - npm run dist:mw
         - ls dist/
       before_cache: rm -rf $HOME/.cache/electron-builder/wine
     - stage: Deploy Linux
@@ -36,7 +33,7 @@ jobs:
       dist: xenial
       script: 
         - rm -f package-lock.json
-        - yarn dist:linux
+        - npm run dist:linux
         - ls dist/
 
 
