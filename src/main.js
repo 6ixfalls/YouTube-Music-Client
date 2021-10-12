@@ -1,6 +1,6 @@
 'use strict';
 const DiscordRPC = require('discord-rpc');
-const { app, BrowserWindow, Menu, nativeImage, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, nativeImage, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { clearInterval } = require('timers');
@@ -8,16 +8,17 @@ const { clearInterval } = require('timers');
 const dataPath = app.getPath('userData');
 const generalConfigPath = path.join(dataPath, 'config.json');
 
+let config = {
+	continueURL: 'https://music.youtube.com/',
+	continueWhereLeftOf: false,
+};
+
 try {
-	JSON.parse(fs.readFileSync(generalConfigPath));
+	config = JSON.parse(fs.readFileSync(generalConfigPath));
 } catch (ex) {
-	if (fs.existsSync(generalConfigPath)) {
-		fs.unlinkSync(generalConfigPath);
-	}
-	fs.writeFileSync(generalConfigPath, JSON.stringify({}));
+	fs.writeFileSync(generalConfigPath, JSON.stringify(config));
 }
 
-const config = JSON.parse(fs.readFileSync(generalConfigPath));
 if (!config.continueWhereLeftOf || typeof config.continueWhereLeftOf !== 'boolean') config.continueWhereLeftOf = false;
 if (!config.continueURL || typeof config.continueURL !== 'string') config.continueURL = 'https://music.youtube.com/';
 
@@ -25,12 +26,13 @@ let reconnectTimer, injected;
 
 const resourcePath = process.platform === 'darwin' ? 'Contents/Resources' : 'resources';
 
-function executeJavaScript(code) {
+function executeJavaScript(target, code) {
 	return new Promise(resolve => {
-		win.webContents.executeJavaScript(code).then(data => resolve(data));
+		target.webContents.executeJavaScript(code).then(data => resolve(data));
 	});
 }
 
+let settingsClosed, mainClosed = false;
 let win, settingsWin;
 const menuTemplate = [
 	{
@@ -45,19 +47,57 @@ if (process.platform === 'darwin') {
 	menuTemplate.unshift({});
 }
 
+const debug = process.argv[2] === '--debug' || false;
+
 function createSettingsWindow() {
+	settingsClosed = false;
 	settingsWin = new BrowserWindow({
-		width: 800,
-		height: 700,
+		width: 300,
+		height: 150,
+		title: `Settings - YouTube Music - v${require('../package.json').version}`,
 		webPreferences: {
 			preload: path.join(process.cwd(), 'src', 'preload.js'),
+			contextIsolation: false,
 		},
 	});
-	settingsWin.setMinimumSize(300, 300);
-	settingsWin.setResizable(true);
+	settingsWin.setMinimumSize(300, 150);
+	settingsWin.setResizable(false);
 	const menu = Menu.buildFromTemplate(menuTemplate);
 	Menu.setApplicationMenu(menu);
 	settingsWin.setMenuBarVisibility(false);
+
+	settingsWin.on('show', () => settingsWin.focus());
+
+	settingsWin.on('close', async e => {
+		if (settingsClosed === true) return;
+		e.preventDefault();
+
+		const left_off = await executeJavaScript(settingsWin,
+			'document.getElementById(\'left-off\').checked;');
+
+		let result = {};
+
+		if (left_off !== config.continueWhereLeftOf) {
+			result = await dialog.showMessageBox({
+				type: 'warning',
+				buttons: ['Cancel', 'Ok'],
+				title: 'Do not forget to safe your changes',
+				cancelId: 0,
+				defaultId: 1,
+				noLink: true,
+			});
+		}
+
+		// eslint-disable-next-line no-undef
+		if (result.response === 0) {
+			// Cancel the close process
+		} else if (settingsWin) {
+			settingsClosed = true;
+			settingsWin.close();
+		}
+	});
+
+	settingsWin.loadFile(path.join(process.cwd(), 'resources', 'page', 'settings.html'));
 }
 
 function createWindow() {
@@ -65,8 +105,10 @@ function createWindow() {
 	win = new BrowserWindow({
 		width: 800,
 		height: 700,
+		title: `YouTube Music - v${require('../package.json').version}`,
 		webPreferences: {
 			preload: path.join(process.cwd(), 'src', 'preload.js'),
+			contextIsolation: false,
 		},
 	});
 	win.setMinimumSize(300, 300);
@@ -75,7 +117,9 @@ function createWindow() {
 	Menu.setApplicationMenu(menu);
 	win.setMenuBarVisibility(false);
 
-	win.on('close', async () => {
+	win.on('close', async e => {
+		if (mainClosed) return;
+		e.preventDefault();
 		let tempInfo = await getContent().catch(() => null);
 		// eslint-disable-next-line no-unused-vars
 		const { time, paused } = tempInfo ||
@@ -87,23 +131,37 @@ function createWindow() {
 		if (!config.continueWhereLeftOf) {
 			config.continueURL = 'https://music.youtube.com/';
 		} else {
+			await executeJavaScript(win,
+				'document.querySelector(\'[aria-label="Open player page"] > tp-yt-iron-icon\').click();');
+
 			config.continueURL = win.webContents.getURL();
 			config.continueURL += `&autoplay=0&t=${time[0]}`;
 		}
 
 		console.log(config.continueURL);
 		fs.writeFileSync(generalConfigPath, JSON.stringify(config, null, '\t'));
+
+		mainClosed = true;
+		win.close();
 	});
 	win.on('closed', () => {
 		win = null;
 	});
 	win.on('page-title-updated', (e, title) => {
-		win.setTitle(`${title} - v${require('../package.json').version}`);
 		e.preventDefault();
+		win.setTitle(`${title} - v${require('../package.json').version}`);
+	});
+	win.webContents.on('will-navigate', (e, url) => {
+		const domain = url.match(/^https?:\/\/([\w.\-_]*)\//i)[1];
+		if (domain !== 'music.youtube.com') {
+			e.preventDefault();
+		}
 	});
 
 	win.webContents.on('dom-ready', settingsHook);
 	win.webContents.on('will-prevent-unload', e => e.preventDefault());
+
+	console.log(config.continueURL);
 
 	win.loadURL(config.continueURL, {
 		userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0',
@@ -111,23 +169,23 @@ function createWindow() {
 		// Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36
 	});
 
-	// win.webContents.openDevTools();
+	if (debug) win.webContents.openDevTools();
 
 	if (!config.continueWhereLeftOf) return;
 
 	win.webContents.once('media-started-playing', async () => {
-		await executeJavaScript('document.querySelector(\'#play-pause-button > iron-icon\').click();');
+		await executeJavaScript(win, 'document.querySelector(\'#play-pause-button > tp-yt-iron-icon\').click();');
 	});
 }
 
 app.on('ready', createWindow);
 
 app.on('window-all-closed', () => {
-	fs.writeFileSync(generalConfigPath, JSON.stringify(config, null, '\t'));
+	saveConfig();
 	app.quit();
 });
 app.on('will-quit', () => {
-	fs.writeFileSync(generalConfigPath, JSON.stringify(config, null, '\t'));
+	saveConfig();
 });
 
 app.on('activate', () => {
@@ -140,12 +198,11 @@ async function settingsHook() {
 	if (injected) return;
 
 	// eslint-disable-next-line max-len
-	await executeJavaScript(fs.readFileSync(path.join(process.cwd(), 'src', 'settingsInjection.js')).toString().replaceAll('\r', ''));
+	await executeJavaScript(win, fs.readFileSync(path.join(process.cwd(), 'src', 'settingsInjection.js')).toString().replaceAll('\r', ''));
 	injected = true;
 }
 
 ipcMain.on('left-of-checked', (event, checked) => {
-	console.log(checked);
 	config.continueWhereLeftOf = checked;
 
 	if (checked === false) {
@@ -159,7 +216,14 @@ ipcMain.on('get-left-of-checked', event => {
 	event.returnValue = config.continueWhereLeftOf;
 });
 
+ipcMain.on('settings-closing', () => {
+	win.setIgnoreMouseEvents(false);
+	win.focus();
+	saveConfig();
+});
+
 ipcMain.on('settings-clicked', () => {
+	win.setIgnoreMouseEvents(true);
 	createSettingsWindow();
 });
 
@@ -175,27 +239,29 @@ function getContent() {
 			result;
 
 		// eslint-disable-next-line max-len
-		result = await executeJavaScript('document.querySelector(\'div.content-info-wrapper yt-formatted-string.title\').title;');
+		result = await executeJavaScript(win, 'document.querySelector(\'div.content-info-wrapper yt-formatted-string.title\').title;');
 		if (!result) return reject('Error grabbing title');
 		title = result;
 
-		result = await executeJavaScript('document.querySelector(\'span.subtitle yt-formatted-string.byline\').title;');
+		result = await executeJavaScript(win,
+			'document.querySelector(\'span.subtitle yt-formatted-string.byline\').title;');
 		if (!result) return reject('Error grabbing artist');
 		artist = result.split(' • ');
 
-		result = await executeJavaScript('document.querySelector(\'#progress-bar\').getAttribute(\'aria-valuemax\');');
+		result = await executeJavaScript(win, 'document.querySelector(\'#progress-bar\').getAttribute(\'aria-valuemax\');');
 		if (!result) return reject('Error grabbing time max');
 		timeMax = result;
 
-		result = await executeJavaScript('document.querySelector(\'#progress-bar\').getAttribute(\'aria-valuenow\');');
+		result = await executeJavaScript(win, 'document.querySelector(\'#progress-bar\').getAttribute(\'aria-valuenow\');');
 		if (!result) return reject('Error grabbing time now');
 		timeNow = result;
 
-		result = await executeJavaScript('document.querySelector(\'#play-pause-button\').title;');
+		result = await executeJavaScript(win, 'document.querySelector(\'#play-pause-button\').title;');
 		if (!result) return reject('Error grabbing play status');
 		paused = result !== 'Pause';
 
-		result = await executeJavaScript('document.querySelector(\'div.ytmusic-player-queue\').firstElementChild.selected');
+		result = await executeJavaScript(win,
+			'document.querySelector(\'div.ytmusic-player-queue\').firstElementChild.selected');
 		isFirst = result;
 
 		return resolve({ title, artist, time: [timeNow, timeMax], paused, isFirst });
@@ -278,7 +344,7 @@ async function updateSongInfo() {
 		return;
 	}
 
-	songInfo = await getContent().catch(console.log);
+	songInfo = await getContent().catch(debug ? console.log : null);
 
 	// eslint-disable-next-line no-empty-function
 	const { title, artist, time, paused, isFirst } = songInfo ||
@@ -302,19 +368,19 @@ async function updateSongInfo() {
 			tooltip: 'Previous Song',
 			icon: getNativeImage('assets/images/prev.png'),
 			async click() {
-				await executeJavaScript('document.querySelector(\'paper-icon-button.previous-button\').click();');
+				await executeJavaScript(win, 'document.querySelector(\'tp-yt-paper-icon-button.previous-button\').click();');
 			},
 		}, {
 			tooltip: 'Play',
 			icon: getNativeImage('assets/images/play.png'),
 			async click() {
-				await executeJavaScript('document.querySelector(\'paper-icon-button.play-pause-button\').click();');
+				await executeJavaScript(win, 'document.querySelector(\'tp-yt-paper-icon-button.play-pause-button\').click();');
 			},
 		}, {
 			tooltip: 'Next Song',
 			icon: getNativeImage('assets/images/next.png'),
 			async click() {
-				await executeJavaScript('document.querySelector(\'paper-icon-button.next-button\').click();');
+				await executeJavaScript(win, 'document.querySelector(\'tp-yt-paper-icon-button.next-button\').click();');
 			},
 		},
 	];
@@ -379,3 +445,7 @@ rpc.on('ready', () => {
 
 // eslint-disable-next-line no-console
 rpc.login({ clientId }).catch(console.error);
+
+function saveConfig() {
+	fs.writeFileSync(generalConfigPath, JSON.stringify(config, null, '\t'));
+}
