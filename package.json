@@ -38,10 +38,10 @@
 	},
 	"homepage": "https://github.com/BigBrainAFK/YouTube-Music-Client",
 	"devDependencies": {
-		"electron": "^12.0.0",
-		"electron-builder": "^22.10.5",
+		"electron": "^15.1.2",
+		"electron-builder": "^22.13.1",
 		"eslint": "^7.21.0",
-		"eslint-plugin-prettier": "^3.3.1"
+		"eslint-plugin-prettier": "^4.0.0"
 	},
 	"dependencies": {
 		"discord-rpc": "discordjs/RPC",
@@ -61,7 +61,7 @@
 				"dmg"
 			]
 		},
-		"win": {
+		"win": { 
 			"icon": "resources/assets/build/win/icon.ico"
 		},
 		"nsis": {
