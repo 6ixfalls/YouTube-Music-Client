@@ -4,7 +4,7 @@
 	"description": "YouTube Music Client with Discord RPC support",
 	"main": "src/main.js",
 	"scripts": {
-		"test": "yarn lint",
+		"test": "npm run lint",
 		"lint": "eslint **/*.js",
 		"lint:fix": "eslint --fix **/*.js",
 		"start": "electron .",
@@ -14,9 +14,9 @@
 		"dist:win": "electron-builder --win --x64 --ia32",
 		"dist:win32": "electron-builder --win --ia32",
 		"dist:win64": "electron-builder --win --x64",
-		"dist:mw": "yarn dist:win && yarn dist:mac",
+		"dist:mw": "npm run dist:win && npm run dist:mac",
 		"dist:linux": "electron-builder --linux --x64 --ia32",
-		"dist": "yarn dist:mw && yarn dist:linux",
+		"dist": "npm run dist:mw && npm run dist:linux",
 		"postinstall": "electron-builder install-app-deps"
 	},
 	"keywords": [
