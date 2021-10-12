@@ -1,46 +1,41 @@
 language: node_js
-node_js: "16"
-
+node_js: '16'
 cache:
   directories:
-    - node_modules
-    - app/node_modules
-    - $HOME/.cache/electron
-    - $HOME/.cache/electron-builder
-    - $HOME/.npm/_prebuilds
-
+  - node_modules
+  - app/node_modules
+  - "$HOME/.cache/electron"
+  - "$HOME/.cache/electron-builder"
+  - "$HOME/.npm/_prebuilds"
 env:
   global:
-    - ELECTRON_CACHE=$HOME/.cache/electron
-    - ELECTRON_BUILDER_CACHE=$HOME/.cache/electron-builder
-
+  - ELECTRON_CACHE=$HOME/.cache/electron
+  - ELECTRON_BUILDER_CACHE=$HOME/.cache/electron-builder
 jobs:
   include:
-    - stage: Deploy Windows & Mac
-      if: tag IS present
-      os: osx
-      osx_image: xcode10.2
-      script: 
-        - rm -f package-lock.json
-        - npm run dist:mw
-        - ls dist/
-      before_cache: rm -rf $HOME/.cache/electron-builder/wine
-    - stage: Deploy Linux
-      if: tag IS present
-      os: linux
-      dist: xenial
-      script: 
-        - rm -f package-lock.json
-        - npm run dist:linux
-        - ls dist/
-
-
+  - stage: Deploy Windows & Mac
+    if: tag IS present
+    os: osx
+    osx_image: xcode10.2
+    script:
+    - rm -f package-lock.json
+    - npm run dist:mw
+    - ls dist/
+    before_cache: rm -rf $HOME/.cache/electron-builder/wine
+  - stage: Deploy Linux
+    if: tag IS present
+    os: linux
+    dist: xenial
+    script:
+    - rm -f package-lock.json
+    - npm run dist:linux
+    - ls dist/
 deploy:
   provider: releases
   api_key:
-    secure: "Icx0gb/u+i4hQUZYL1EAXnG4oZDfCXnf67t/5ZTBnw4+5WuAQWMVSuZbD+b5f249c6ly0Z5L1kNLmFSfjtcD4A4SBOrGQXO2AKhMl2XNqDIXp62x5RF1SB8H80PkGDG7oSYZVDi9lU2pwQY9wmYtax85MxZYV00g95UaGAl1zSzza8EIpZuYuCUcjswl8/BKDBBWr8X584z5jhxBs9HclfHxiXiNfVBYetLzFxHGmetJfB6ffxDzr5b+kdhjgEUYkzxlX7hWYAIlTh4eHc22cVgdS5RPhppXrBVYu/csV5qSm0HojY8NW5lskvgFkFXGzMywm7Fkap9LHtU2zN6yurSBmlkgsAaX3abwTfu7JhtP04tVOtN9WO7KD3KZS5kAMlGtCd19Rs0BhDAP518p1qLrXY/oWJEpmY1dYswyENx8o8xbWrdZ9ks0Cl7ijPR2rIOh1E4NvVf6KbEQmaMNzhNEMjSs1yDR8i3eLm/1mGJUrErxGUaREDnyLfgLPjsc4LrmpAA+hkpSdmWnnjj0nyme27T8O9jsbKzIcHuPFnP4hDt3O0tuJxbxeoX9+ATaz0h9DUCRHDf5H+nbezjzTyfsqx4uUtQh+pTG4/3AVoYce08+SeHd/3IdFMtFsaXjHE5rl3b9zBAozK0dmJN0ur6yOfK1Jpkc02zbkcVosiY="
+    secure: H++fKvIy2OiJcDryUqUc+KKVZrBYWU7/k44ifoGCtT26aGVXAaaUm1r3lrTUlC8PI/mITyfp/fD7CGUMa9ABJrRPFYXYRK8nOoQR50K0vzRDOnBw505eiufSSGavun82m2/recbdn6f0nZeAosvVHv7rQkLhA5E4mCQ4YPUW9Zidr0AY8xFaeUtJahGWfGqWKiX+5xLlHREtHaPTm5w8XYr+yFNkV2of30XvCDFJWSf9fF8OZxRsHO+Z4crXp1+5JCqPahX98WpkZ/ypROX/4MZaBA3mxYh8DPLBxAqpabaHciEfaw6fIKvYlq1UGQKZ32App/7CAOO2wRpOluHDb4JXHEhoYFHSEQz8g0BmsR+Te/2d+Eqmqokv4MXywhNVTARQFNQeJuAvS9jniZrxdHaHqBn5HwBOajn5lbO6o6m8fLVYEjjtjHjtFIkRiPmmlY7BXXucu3rAyM0zznHzbg6n4EfnuudMkQ+s3wnSqx3CDwKuZunuENDiVjjkPZgxbefMYOW9bnOZUv7KBd994anMpVxQVsfLGtY4/ilruF+IKnVCvEW9JAU4IFFf5TcowtYX8hP4+vgJts6gkQUCzG8fVZPHF8aaTJtHig3zHHPQK3lqN4AiENP5lfVSemIKNlXNlL4YE+sJ0piOddFkeWGgrouoXU5yeqUnWyo2nFs=
   file_glob: true
-  file: "dist/YouTube-Music-Client*.{zip,exe,AppImage,dmg}"
+  file: dist/YouTube-Music-Client*.{zip,exe,AppImage,dmg}
   skip_cleanup: true
   on:
     tags: true
