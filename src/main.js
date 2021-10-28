@@ -132,7 +132,7 @@ function createWindow() {
 			config.continueURL = 'https://music.youtube.com/';
 		} else {
 			await executeJavaScript(win,
-				'document.querySelector(\'[aria-label="Open player page"] > tp-yt-iron-icon\').click();');
+				'document.querySelector(\'[aria-label="Open player page"] > tp-yt-iron-icon\').click();').catch(null);
 
 			config.continueURL = win.webContents.getURL();
 			config.continueURL += `&autoplay=0&t=${time[0]}`;
@@ -160,8 +160,6 @@ function createWindow() {
 
 	win.webContents.on('dom-ready', settingsHook);
 	win.webContents.on('will-prevent-unload', e => e.preventDefault());
-
-	console.log(config.continueURL);
 
 	win.loadURL(config.continueURL, {
 		userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101 Firefox/80.0',
@@ -261,7 +259,7 @@ function getContent() {
 		paused = result !== 'Pause';
 
 		result = await executeJavaScript(win,
-			'document.querySelector(\'div.ytmusic-player-queue\').firstElementChild.selected');
+			'document.querySelector(\'#content\').firstElementChild.selected');
 		isFirst = result;
 
 		return resolve({ title, artist, time: [timeNow, timeMax], paused, isFirst });
