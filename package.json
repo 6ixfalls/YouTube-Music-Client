@@ -61,7 +61,7 @@
 				"dmg"
 			]
 		},
-		"win": { 
+		"win": {
 			"icon": "resources/assets/build/win/icon.ico"
 		},
 		"nsis": {
